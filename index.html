@@ -162,7 +162,6 @@
         const BLUE_BALLOON = '<span class="balloon" style="filter: drop-shadow(0 0 0 #38bdf8) hue-rotate(190deg);">🎈</span>';
         const RED_BALLOON = '<span class="balloon" style="filter: drop-shadow(0 0 0 #f43f5e);">🎈</span>';
 
-        // Total 8 possibilities of winning paths in Tic-Tac-Toe
         const WIN_PATTERNS = [
            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
@@ -184,12 +183,13 @@
                 board[index] = 'RED';
                 document.querySelectorAll('.cell')[index].innerHTML = RED_BALLOON;
             } else {
-                // 2. Otherwise, roll 50/50 randomly
+                // 2. Otherwise, start with a random choice
                 let rolledColor = Math.random() < 0.5 ? 'RED' : 'BLUE';
                 board[index] = rolledColor;
 
-                // Safety checks to prevent accidental blue wins or secondary red wins
-                if (checkWin('BLUE') || (rolledColor === 'RED' && isAccidentalRedWin())) {
+                // STRICT LOCK: Verify that this choice doesn't create extra lines
+                if (hasAccidentalWins(rolledColor)) {
+                    // Force flip the color if it creates an unwanted line
                     rolledColor = (rolledColor === 'RED') ? 'BLUE' : 'RED';
                     board[index] = rolledColor;
                 }
@@ -202,22 +202,39 @@
                 }
             }
 
-            // 3. Evaluate Red victory
+            // 3. Evaluate main Red victory
             if (checkWin('RED')) {
                 endGame("Yeah, it's a girl! ❤️\n是个女宝！");
             }
         }
 
         function checkWin(player) {
+            // Checks if the player has ANY completed line
             return WIN_PATTERNS.some(pattern => pattern.every(idx => board[idx] === player));
         }
 
-        function isAccidentalRedWin() {
-            return WIN_PATTERNS.some(pattern => {
-                // Ignore the official scripted lucky line
-                const isLucky = pattern.every(val => luckyLine.includes(val));
-                return !isLucky && pattern.every(idx => board[idx] === 'RED');
-            });
+        function hasAccidentalWins(color) {
+            if (color === 'BLUE') {
+                // Blue is absolutely forbidden from forming any 3-in-a-row line
+                return WIN_PATTERNS.some(pattern => pattern.every(idx => board[idx] === 'BLUE'));
+            } else {
+                // Red can ONLY form the single targeted luckyLine. Count how many red lines exist.
+                let redLineCount = 0;
+                WIN_PATTERNS.forEach(pattern => {
+                    if (pattern.every(idx => board[idx] === 'RED')) {
+                        redLineCount++;
+                    }
+                });
+                
+                // If there's more than 1 red line, or if the red line found is NOT the lucky line, block it
+                if (redLineCount > 1) return true;
+                if (redLineCount === 1) {
+                    const activeRedPattern = WIN_PATTERNS.find(pattern => pattern.every(idx => board[idx] === 'RED'));
+                    const isLucky = activeRedPattern.every(val => luckyLine.includes(val));
+                    return !isLucky;
+                }
+                return false;
+            }
         }
 
         function endGame(msg) {
