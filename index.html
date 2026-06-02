@@ -187,7 +187,7 @@
                 let rolledColor = Math.random() < 0.5 ? 'RED' : 'BLUE';
                 board[index] = rolledColor;
 
-                // STRICT LOCK: Verify that this choice doesn't create extra lines
+                // STRICT LOCK: Verify that this choice doesn't create accidental wins
                 if (hasAccidentalWins(rolledColor)) {
                     // Force flip the color if it creates an unwanted line
                     rolledColor = (rolledColor === 'RED') ? 'BLUE' : 'RED';
@@ -209,13 +209,12 @@
         }
 
         function checkWin(player) {
-            // Checks if the player has ANY completed line
             return WIN_PATTERNS.some(pattern => pattern.every(idx => board[idx] === player));
         }
 
         function hasAccidentalWins(color) {
             if (color === 'BLUE') {
-                // Blue is absolutely forbidden from forming any 3-in-a-row line
+                // BUG FIX: Strictly prevent Blue from forming any 3-in-a-row line
                 return WIN_PATTERNS.some(pattern => pattern.every(idx => board[idx] === 'BLUE'));
             } else {
                 // Red can ONLY form the single targeted luckyLine. Count how many red lines exist.
@@ -226,7 +225,6 @@
                     }
                 });
                 
-                // If there's more than 1 red line, or if the red line found is NOT the lucky line, block it
                 if (redLineCount > 1) return true;
                 if (redLineCount === 1) {
                     const activeRedPattern = WIN_PATTERNS.find(pattern => pattern.every(idx => board[idx] === 'RED'));
