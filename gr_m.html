@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe Gender Reveal</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #ffe4e6 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #475569;
+            margin-bottom: 5px;
+            font-size: 28px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 25px;
+            font-size: 16px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 15px;
+            background-color: rgba(255, 255, 255, 0.6);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        .cell {
+            background-color: #fff;
+            border: none;
+            border-radius: 15px;
+            font-size: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .cell:active {
+            transform: scale(0.95);
+        }
+
+        /* Balloon pop animation */
+        .balloon {
+            display: inline-block;
+            animation: float 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes float {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Modal popup */
+        #result-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            animation: popUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popUp {
+            0% { transform: scale(0.7); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .result-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0284c7;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .restart-btn {
+            background-color: #38bdf8;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(56, 189, 248, 0.4);
+            transition: background 0.2s;
+        }
+
+        .restart-btn:hover {
+            background-color: #0ea5e9;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>井字棋 / Tic-Tac-Toe</h1>
+    <div class="subtitle">
+        点击格子吹起气球，连成3个同色即揭晓！<br>
+        Click cells to pop balloons. Connect 3 to reveal!
+    </div>
+
+    <div id="board">
+        <div class="cell" onclick="makeMove(0)"></div>
+        <div class="cell" onclick="makeMove(1)"></div>
+        <div class="cell" onclick="makeMove(2)"></div>
+        <div class="cell" onclick="makeMove(3)"></div>
+        <div class="cell" onclick="makeMove(4)"></div>
+        <div class="cell" onclick="makeMove(5)"></div>
+        <div class="cell" onclick="makeMove(6)"></div>
+        <div class="cell" onclick="makeMove(7)"></div>
+        <div class="cell" onclick="makeMove(8)"></div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal">
+        <div class="modal-content">
+            <div class="result-text" id="result-message">
+                Yeah, it's a boy! 💙<br>是个男宝！
+            </div>
+            <button class="restart-btn" onclick="resetGame()">再玩一次 / Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        let board = Array(9).fill(null);
+        let gameOver = false;
+        let luckyLine = []; // Store the selected line index for the current match
+        
+        const BLUE_BALLOON = '<span class="balloon" style="filter: drop-shadow(0 0 0 #38bdf8) hue-rotate(190deg);">🎈</span>';
+        const RED_BALLOON = '<span class="balloon" style="filter: drop-shadow(0 0 0 #f43f5e);">🎈</span>';
+
+        const WIN_PATTERNS = [
+          [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+          [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+          [0, 4, 8], [2, 4, 6]             // Diagonals
+        ];
+
+        // Randomly select a fresh winning line every single round
+        function initSecretScript() {
+            const randomIndex = Math.floor(Math.random() * WIN_PATTERNS.length);
+            luckyLine = WIN_PATTERNS[randomIndex];
+            console.log("Current Match Winning Path Indices (BLUE):", luckyLine);
+        }
+
+        function makeMove(index) {
+            if (board[index] !== null || gameOver) return;
+
+            // 1. If it belongs to the dynamic lucky line, force it to be BLUE
+            if (luckyLine.includes(index)) {
+                board[index] = 'BLUE';
+                document.querySelectorAll('.cell')[index].innerHTML = BLUE_BALLOON;
+            } else {
+                // 2. Otherwise, start with a random choice
+                let rolledColor = Math.random() < 0.5 ? 'BLUE' : 'RED';
+                board[index] = rolledColor;
+
+                // STRICT LOCK: Verify that this choice doesn't create accidental wins
+                if (hasAccidentalWins(rolledColor)) {
+                    // Force flip the color if it creates an unwanted line
+                    rolledColor = (rolledColor === 'BLUE') ? 'RED' : 'BLUE';
+                    board[index] = rolledColor;
+                }
+
+                // Render finalized color
+                if (rolledColor === 'BLUE') {
+                    document.querySelectorAll('.cell')[index].innerHTML = BLUE_BALLOON;
+                } else {
+                    document.querySelectorAll('.cell')[index].innerHTML = RED_BALLOON;
+                }
+            }
+
+            // 3. Evaluate main Blue victory
+            if (checkWin('BLUE')) {
+                endGame("Yeah, it's a boy! 💙\n是个男宝！");
+            }
+        }
+
+        function checkWin(player) {
+            return WIN_PATTERNS.some(pattern => pattern.every(idx => board[idx] === player));
+        }
+
+        function hasAccidentalWins(color) {
+            if (color === 'RED') {
+                // Strictly prevent Red from forming any 3-in-a-row line
+                return WIN_PATTERNS.some(pattern => pattern.every(idx => board[idx] === 'RED'));
+            } else {
+                // Blue can ONLY form the single targeted luckyLine. Count how many blue lines exist.
+                let blueLineCount = 0;
+                WIN_PATTERNS.forEach(pattern => {
+                    if (pattern.every(idx => board[idx] === 'BLUE')) {
+                        blueLineCount++;
+                    }
+                });
+                
+                if (blueLineCount > 1) return true;
+                if (blueLineCount === 1) {
+                    const activeBluePattern = WIN_PATTERNS.find(pattern => pattern.every(idx => board[idx] === 'BLUE'));
+                    const isLucky = activeBluePattern.every(val => luckyLine.includes(val));
+                    return !isLucky;
+                }
+                return false;
+            }
+        }
+
+        function endGame(msg) {
+            gameOver = true;
+            document.getElementById('result-message').innerHTML = msg.replace('\n', '<br>');
+            setTimeout(() => {
+                document.getElementById('result-modal').style.display = 'flex';
+            }, 600);
+        }
+
+        function resetGame() {
+            board = Array(9).fill(null);
+            luckyLine = []; 
+            gameOver = false;
+            
+            document.getElementById('result-modal').style.display = 'none';
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => cell.innerHTML = '');
+            
+            initSecretScript(); // Re-roll a completely new winning line path for the next round
+        }
+
+        // Initialize the very first script load
+        initSecretScript();
+    </script>
+</body>
+</html>
