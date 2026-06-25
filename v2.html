@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe Gender Reveal</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #ffe4e6 0%, #e0f2fe 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #475569;
+            margin-bottom: 5px;
+            font-size: 28px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            z-index: 10;
+        }
+
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 25px;
+            font-size: 16px;
+            text-align: center;
+            line-height: 1.6;
+            z-index: 10;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 15px;
+            background-color: rgba(255, 255, 255, 0.6);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+        }
+
+        .cell {
+            background-color: #fff;
+            border: none;
+            border-radius: 15px;
+            font-size: 55px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease, color 3s ease, text-shadow 3s ease;
+            user-select: none;
+        }
+
+        .cell:active {
+            transform: scale(0.95);
+        }
+
+        .player {
+            color: #d1d5db;
+            /* 初始浅灰色 */
+        }
+
+        .computer {
+            color: #22c55e;
+            /* 电脑绿色 */
+        }
+
+        .player.win-boy {
+            color: #3b82f6;
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+
+        .player.win-girl {
+            color: #ec4899;
+            text-shadow: 0 0 15px rgba(236, 72, 153, 0.5);
+        }
+
+        #fireworks-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #result-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            animation: popUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popUp {
+            0% {
+                transform: scale(0.7);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .result-text {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .restart-btn {
+            background-color: #475569;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: background 0.2s;
+        }
+
+        .restart-btn:hover {
+            background-color: #334155;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>井字棋 / Tic-Tac-Toe</h1>
+    <div class="subtitle">
+        你先走 (浅灰色)，电脑后走 (绿色)<br>
+        You play first. Connect 3 to reveal the secret!
+    </div>
+
+    <canvas id="fireworks-canvas"></canvas>
+
+    <div id="board">
+        <div class="cell" onclick="makeMove(0)"></div>
+        <div class="cell" onclick="makeMove(1)"></div>
+        <div class="cell" onclick="makeMove(2)"></div>
+        <div class="cell" onclick="makeMove(3)"></div>
+        <div class="cell" onclick="makeMove(4)"></div>
+        <div class="cell" onclick="makeMove(5)"></div>
+        <div class="cell" onclick="makeMove(6)"></div>
+        <div class="cell" onclick="makeMove(7)"></div>
+        <div class="cell" onclick="makeMove(8)"></div>
+    </div>
+
+    <div id="result-modal">
+        <div class="modal-content">
+            <div class="result-text" id="result-message"></div>
+            <button class="restart-btn" onclick="resetGame()">再来一次 / Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        let answer = 'girl'; // 可以改为 'boy' 或 'girl'
+
+        let board = Array(9).fill(null);
+        let gameOver = false;
+        let isComputerTurn = false;
+        let fireworksAnimationId;
+
+        const WIN_PATTERNS = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        function makeMove(index) {
+            if (board[index] !== null || gameOver || isComputerTurn) return;
+
+            board[index] = 'Player';
+            const cell = document.querySelectorAll('.cell')[index];
+            cell.textContent = 'X';
+            cell.classList.add('player');
+
+            if (checkWin('Player')) {
+                handleGameOver('Player');
+                return;
+            }
+            if (!board.includes(null)) {
+                handleGameOver('Draw');
+                return;
+            }
+
+            isComputerTurn = true;
+            setTimeout(computerMove, 500);
+        }
+
+        function computerMove() {
+            if (gameOver) return;
+
+            let emptyCells = [];
+            board.forEach((val, idx) => {
+                if (val === null) emptyCells.push(idx);
+            });
+
+            if (emptyCells.length === 0) return;
+
+            let targetIndex = -1;
+
+            // 1. 能赢必赢：检查电脑自己下哪一步能直接获胜
+            for (let i = 0; i < emptyCells.length; i++) {
+                let idx = emptyCells[i];
+                board[idx] = 'Computer';
+                if (checkWin('Computer')) {
+                    targetIndex = idx;
+                }
+                board[idx] = null; // 撤销测试
+                if (targetIndex !== -1) break;
+            }
+
+            // 2. 防守堵截：如果电脑赢不了，看看玩家下一步会不会赢，去堵住
+            if (targetIndex === -1) {
+                for (let i = 0; i < emptyCells.length; i++) {
+                    let idx = emptyCells[i];
+                    board[idx] = 'Player';
+                    if (checkWin('Player')) {
+                        targetIndex = idx;
+                    }
+                    board[idx] = null; // 撤销测试
+                    if (targetIndex !== -1) break;
+                }
+            }
+
+            // 3. 抢占中心：如果中间空着，优先下中间（提高难度）
+            if (targetIndex === -1 && emptyCells.includes(4)) {
+                targetIndex = 4;
+            }
+
+            // 4. 随机落子：以上都不满足，随便走一步
+            if (targetIndex === -1) {
+                targetIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            }
+
+            // 电脑正式落子
+            board[targetIndex] = 'Computer';
+            const cell = document.querySelectorAll('.cell')[targetIndex];
+            cell.textContent = 'O';
+            cell.classList.add('computer');
+
+            if (checkWin('Computer')) {
+                handleGameOver('Computer');
+            } else if (!board.includes(null)) {
+                handleGameOver('Draw');
+            } else {
+                isComputerTurn = false;
+            }
+        }
+
+        function checkWin(player) {
+            return WIN_PATTERNS.some(pattern => pattern.every(idx => board[idx] === player));
+        }
+
+        function handleGameOver(winner) {
+            gameOver = true;
+
+            if (winner === 'Player') {
+                const targetClass = answer === 'boy' ? 'win-boy' : 'win-girl';
+                const msg = answer === 'boy' ? "Yeah, it's a boy! 💙<br>是个男宝！" : "Yeah, it's a girl! ❤️<br>是个女宝！";
+                const modalColor = answer === 'boy' ? '#3b82f6' : '#ec4899';
+
+                document.querySelectorAll('.cell.player').forEach(cell => {
+                    cell.classList.add(targetClass);
+                });
+
+                startFireworks();
+
+                setTimeout(() => {
+                    showModal(msg, modalColor);
+                }, 3000);
+
+            } else if (winner === 'Computer') {
+                showModal("Wanna know the answer? Beat me first!<br>想知道？<br>打赢我再说！", "#22c55e");
+            } else {
+                showModal("It's a draw!<br>So close, try again!<br>平局啦！<br>差一点点，再试一次！", "#64748b");
+            }
+        }
+
+        function showModal(msg, color) {
+            const msgElement = document.getElementById('result-message');
+            msgElement.innerHTML = msg;
+            msgElement.style.color = color;
+            document.getElementById('result-modal').style.display = 'flex';
+        }
+
+        function resetGame() {
+            board = Array(9).fill(null);
+            gameOver = false;
+            isComputerTurn = false;
+
+            document.getElementById('result-modal').style.display = 'none';
+
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.className = 'cell';
+            });
+
+            cancelAnimationFrame(fireworksAnimationId);
+            const canvas = document.getElementById('fireworks-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // 烟花系统
+        function startFireworks() {
+            const canvas = document.getElementById('fireworks-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            let particles = [];
+            const colors = answer === 'boy' ? ['#38bdf8', '#3b82f6', '#1d4ed8'] : ['#f43f5e', '#ec4899', '#be185d'];
+
+            function createExplosion(x, y) {
+                for (let i = 0; i < 80; i++) {
+                    particles.push({
+                        x: x,
+                        y: y,
+                        vx: (Math.random() - 0.5) * 20,
+                        vy: (Math.random() - 0.5) * 20,
+                        size: Math.random() * 4 + 2,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        life: 1,
+                        decay: Math.random() * 0.015 + 0.015
+                    });
+                }
+            }
+
+            createExplosion(canvas.width / 2, canvas.height / 2);
+            setTimeout(() => createExplosion(canvas.width * 0.3, canvas.height * 0.4), 500);
+            setTimeout(() => createExplosion(canvas.width * 0.7, canvas.height * 0.3), 1000);
+            setTimeout(() => createExplosion(canvas.width / 2, canvas.height * 0.2), 1500);
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                particles.forEach((p, index) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.4;
+                    p.life -= p.decay;
+
+                    if (p.life <= 0) {
+                        particles.splice(index, 1);
+                    } else {
+                        ctx.globalAlpha = Math.max(p.life, 0);
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fillStyle = p.color;
+                        ctx.fill();
+                    }
+                });
+
+                if (particles.length > 0 || gameOver) {
+                    fireworksAnimationId = requestAnimationFrame(animate);
+                }
+            }
+            animate();
+        }
+
+        window.addEventListener('resize', () => {
+            const canvas = document.getElementById('fireworks-canvas');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+
+</html>
